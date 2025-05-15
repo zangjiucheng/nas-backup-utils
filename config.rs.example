@@ -1,0 +1,9 @@
+// use `const` for simple &str constants
+pub const SRC_DIR: &str = "{{SRC_DIR}}";
+pub const BACKUP_DIR: &str = "{{BACKUP_DIR}}";
+
+pub const TEMP_EXT : &str = ".temp";
+pub const CHECKPOINT_NAME : &str = "latest.txt";
+pub const COMPRESS_FILE_NAME : &str = "meta_files.zip";
+
+pub const REMOVE_TEMP_IMMEDIATELY: bool = false;
