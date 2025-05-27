@@ -2,7 +2,7 @@ mod backup_utils;
 mod config;
 mod zip_handler;
 
-use backup_utils::traverse_backup;
+use backup_utils::{traverse_backup, traverse_meta};
 use chrono;
 use config::{BACKUP_DIR, CHECKPOINT_NAME, REMOVE_TEMP_IMMEDIATELY, COMPRESS_FILE_NAME, SRC_DIR, TEMP_EXT};
 use std::{
@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use zip_handler::{compress_dir, extract_dir};
+use std::io::Write;
 
 fn read_last_checkpoint(backup_dir: &Path) -> io::Result<PathBuf> {
     let checkpoint = backup_dir.join(CHECKPOINT_NAME);
@@ -50,7 +51,18 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn main() -> io::Result<()> {
+fn generate_meta(dir: &Path) -> io::Result<()> {
+    println!("meta generate  = {:?}", dir);
+
+    let _ = traverse_meta(Path::new(dir));
+
+    // Compress the new checkpoint directory
+    compress_dir(&dir)?;
+
+    Ok(())
+}
+
+fn backup() -> io::Result<()> {
     // Read latest_checkpoint file if it exists
     let last_checkpoint = read_last_checkpoint(Path::new(BACKUP_DIR))?;
 
@@ -62,6 +74,15 @@ fn main() -> io::Result<()> {
     println!("backup  = {:?}", BACKUP_DIR);
     println!("last_cp = {:?}", last_checkpoint);
     println!("new_cp  = {:?}", new_checkpoint);
+
+    print!("Are you sure you want to create a new backup? (y/n): ");
+    io::stdout().flush().unwrap();
+    let mut confirm = String::new();
+    io::stdin().read_line(&mut confirm).unwrap();
+    if confirm.trim().to_lowercase() != "y" {
+        println!("Backup cancelled.");
+        return Ok(());
+    }
 
     // If last_checkpoint exists, extract it to a temporary directory
     let mut extracted_checkpoint = PathBuf::new();
@@ -93,4 +114,36 @@ fn main() -> io::Result<()> {
 
     Ok(())
 
+}
+
+fn ask_user_for_mode() -> String {
+    print!("Choose mode ([b]ackup / [m]eta): ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_lowercase()
+}
+
+fn main() -> io::Result<()> {
+    let mode = ask_user_for_mode();
+    if mode == "m" || mode == "meta" {
+        // Ask user for directory to generate meta for
+        print!("Enter directory to generate meta for: ");
+        io::stdout().flush().unwrap();
+        let mut dir_input = String::new();
+        io::stdin().read_line(&mut dir_input).unwrap();
+        let dir = Path::new(dir_input.trim());
+        if dir.exists() && dir.is_dir() && dir.metadata().map(|m| m.permissions().readonly() == false).unwrap_or(false) {
+            // Call generate_meta function
+            generate_meta(dir)?;
+        } else {
+            println!("Invalid directory: {:?}", dir);
+        }
+    } else if mode == "b" || mode == "backup" {
+        // Call backup function
+        backup()?;
+    } else {
+        println!("Invalid mode selected. Exiting.");
+    } 
+    Ok(())
 }

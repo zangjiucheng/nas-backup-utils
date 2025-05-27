@@ -1,4 +1,4 @@
-use crate::config::{SRC_DIR};
+use crate::config::SRC_DIR;
 use chrono::Timelike;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -99,7 +99,11 @@ fn compute_xxhash(file_path: &Path) -> io::Result<String> {
     Ok(format!("{:016x}", hash))
 }
 
-fn dealing_with_file(path: &Path, last_checkpoint_meta: &Option<PathBuf>, new_checkpoint_dir: &Path) -> io::Result<()> {
+fn dealing_with_file(
+    path: &Path,
+    last_checkpoint_meta: &Option<PathBuf>,
+    new_checkpoint_dir: &Path,
+) -> io::Result<()> {
     // Check if the file exists in the last checkpoint
     let last_file_info = if let Some(last_checkpoint_meta) = last_checkpoint_meta {
         if last_checkpoint_meta.exists() {
@@ -120,7 +124,7 @@ fn dealing_with_file(path: &Path, last_checkpoint_meta: &Option<PathBuf>, new_ch
             fs::create_dir_all(parent)?;
         }
     }
-    
+
     let mut meta_file_handle = File::create(&new_meta_file)?;
     current_file_info.write_to_file(&mut meta_file_handle)?;
 
@@ -142,7 +146,11 @@ fn dealing_with_file(path: &Path, last_checkpoint_meta: &Option<PathBuf>, new_ch
     Ok(())
 }
 
-pub fn traverse_backup(dir: &Path, last_checkpoint: &Path, new_checkpoint: &Path) -> io::Result<()> {
+pub fn traverse_backup(
+    dir: &Path,
+    last_checkpoint: &Path,
+    new_checkpoint: &Path,
+) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -167,6 +175,24 @@ pub fn traverse_backup(dir: &Path, last_checkpoint: &Path, new_checkpoint: &Path
                 None
             };
             dealing_with_file(&path, &last_checkpoint_meta, &dest)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn traverse_meta(checkpoint: &Path) -> io::Result<()> {
+    for entry in fs::read_dir(checkpoint)? {
+        let entry = entry?;
+        let path = entry.path();
+        let ft = entry.file_type()?;
+        if ft.is_dir() {
+            traverse_meta(&path)?;
+        } else if ft.is_file() {
+            let current_file_info = FileInfo::from_path(&path)?;
+            let new_meta_file = path.with_extension("meta");
+
+            let mut meta_file_handle = File::create(&new_meta_file)?;
+            current_file_info.write_to_file(&mut meta_file_handle)?;
         }
     }
     Ok(())
