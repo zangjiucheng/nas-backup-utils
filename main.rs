@@ -11,6 +11,8 @@ use std::{
 };
 use zip_handler::{compress_dir, extract_dir};
 use std::io::Write;
+use fern::colors::{Color, ColoredLevelConfig};
+use log::{error, info, warn};
 
 fn read_last_checkpoint(backup_dir: &Path) -> io::Result<PathBuf> {
     let checkpoint = backup_dir.join(CHECKPOINT_NAME);
@@ -43,7 +45,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
         } else {
             if src_path.file_name().map_or(false, |name| name == COMPRESS_FILE_NAME) {
                 // Only copy COMPRESS_FILE_NAME
-                println!("Copying {:?}", src_path);
+                info!("Copying {:?}", src_path);
                 fs::copy(&src_path, &dst_path)?;
             }
         }
@@ -52,7 +54,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
 }
 
 fn generate_meta(dir: &Path) -> io::Result<()> {
-    println!("meta generate  = {:?}", dir);
+    info!("meta generate  = {:?}", dir);
 
     let _ = traverse_meta(Path::new(dir));
 
@@ -70,17 +72,17 @@ fn backup() -> io::Result<()> {
     let new_checkpoint_name = new_checkpoint_name();
     let new_checkpoint = Path::new(BACKUP_DIR).join(&new_checkpoint_name);
 
-    println!("src     = {:?}", SRC_DIR);
-    println!("backup  = {:?}", BACKUP_DIR);
-    println!("last_cp = {:?}", last_checkpoint);
-    println!("new_cp  = {:?}", new_checkpoint);
+    info!("src     = {:?}", SRC_DIR);
+    info!("backup  = {:?}", BACKUP_DIR);
+    info!("last_cp = {:?}", last_checkpoint);
+    info!("new_cp  = {:?}", new_checkpoint);
 
     print!("Are you sure you want to create a new backup? (y/n): ");
     io::stdout().flush().unwrap();
     let mut confirm = String::new();
     io::stdin().read_line(&mut confirm).unwrap();
     if confirm.trim().to_lowercase() != "y" {
-        println!("Backup cancelled.");
+        warn!("Backup cancelled.");
         return Ok(());
     }
 
@@ -110,7 +112,7 @@ fn backup() -> io::Result<()> {
     // Update the latest checkpoint file
     let latest_path = Path::new(BACKUP_DIR).join(CHECKPOINT_NAME);
     fs::write(&latest_path, new_checkpoint_name)?;
-    println!("Updated latest checkpoint: {:?}", latest_path);
+    info!("Updated latest checkpoint: {:?}", latest_path);
 
     Ok(())
 
@@ -124,11 +126,49 @@ fn ask_user_for_mode() -> String {
     input.trim().to_lowercase()
 }
 
+fn init_logger() -> Result<(), fern::InitError> {
+    let colors = ColoredLevelConfig::new()
+        .info(Color::Green)
+        .warn(Color::Yellow)
+        .error(Color::Red);
+
+    fern::Dispatch::new()
+        .format(move |out, msg, record| {
+            out.finish(format_args!(
+                "{date} {level} [{target}] {msg}",
+                date   = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                level  = colors.color(record.level()),
+                target = record.target(),
+                msg    = msg
+            ))
+        })
+        .level(log::LevelFilter::Info)
+        .chain(std::io::stdout())          // console
+        // Ensure the logs directory exists
+        .chain({
+            let log_dir = Path::new("logs");
+            if !log_dir.exists() {
+                fs::create_dir_all(log_dir)?;
+            }
+            fern::log_file(format!(
+                "logs/process_{}.log",
+                chrono::Local::now().format("%Y-%m-%d")
+            ))?
+        }) // file
+        .apply()?;
+    Ok(())
+}
+
 fn main() -> io::Result<()> {
+    // Initialize logger
+    if let Err(e) = init_logger() {
+        eprintln!("Failed to initialize logger: {}", e);
+        return Err(io::Error::new(io::ErrorKind::Other, "Logger initialization failed"));
+    }
     let mode = ask_user_for_mode();
     if mode == "m" || mode == "meta" {
         // Ask user for directory to generate meta for
-        print!("Enter directory to generate meta for: ");
+        info!("Enter directory to generate meta for: ");
         io::stdout().flush().unwrap();
         let mut dir_input = String::new();
         io::stdin().read_line(&mut dir_input).unwrap();
@@ -137,13 +177,13 @@ fn main() -> io::Result<()> {
             // Call generate_meta function
             generate_meta(dir)?;
         } else {
-            println!("Invalid directory: {:?}", dir);
+            error!("Invalid directory: {:?}", dir);
         }
     } else if mode == "b" || mode == "backup" {
         // Call backup function
         backup()?;
     } else {
-        println!("Invalid mode selected. Exiting.");
+        error!("Invalid mode selected. Exiting.");
     } 
     Ok(())
 }

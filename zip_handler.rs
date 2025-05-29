@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use zip::write::{FileOptions, ZipWriter};
 use walkdir::WalkDir;
 use zip::ZipArchive;
+use log::{info};
 
 use crate::config::COMPRESS_FILE_NAME;
 
@@ -15,7 +16,7 @@ pub fn compress_dir(root_dir: &Path) -> io::Result<()> {
     {
         compress_process(entry.path())?;
     }
-    println!("Compressed all .meta files in '{}'", root_dir.display());
+    info!("Compressed all .meta files in '{}'", root_dir.display());
     Ok(())
 }
 
@@ -27,7 +28,7 @@ pub fn extract_dir(root_dir: &Path) -> io::Result<()> {
     {
         extract_zip(entry.path(), true)?;
     }
-    println!("Extracted all zip files in '{}'", root_dir.display());
+    info!("Extracted all zip files in '{}'", root_dir.display());
     Ok(())
 }
 
@@ -48,14 +49,14 @@ fn extract_zip(dir: &Path, delete_zip: bool) -> io::Result<()> {
         // Ensure the file has a .meta extension
         let name_str = String::from_utf8_lossy(name).to_string();
         if !name_str.ends_with(".meta") {
-            println!("Skipping non-.meta file in zip: {}", name_str);
+            info!("Skipping non-.meta file in zip: {}", name_str);
             continue;
         }
         let file_name = name_str;
 
         let out_path = dir.join(&file_name);
         if out_path.exists() {
-            println!("File already exists, skipping: {}", out_path.display());
+            info!("File already exists, skipping: {}", out_path.display());
             continue;
         }
 
@@ -63,13 +64,13 @@ fn extract_zip(dir: &Path, delete_zip: bool) -> io::Result<()> {
         zip_file.read_to_end(&mut content)?;
         let mut out_file = File::create(&out_path)?;
         out_file.write_all(&content)?;
-        println!("Extracted: {}", out_path.display());
+        info!("Extracted: {}", out_path.display());
     }
 
     // Optionally delete the zip file
     if delete_zip {
         fs::remove_file(&zip_path)?;
-        println!("Deleted zip: {}", zip_path.display());
+        info!("Deleted zip: {}", zip_path.display());
     }
 
     Ok(())
@@ -92,7 +93,7 @@ fn compress_process(dir: &Path) -> io::Result<()> {
     if !meta_files.is_empty() {
         create_zip(dir, &meta_files)?;
         delete_meta_files(&meta_files)?;
-        println!("Compressed {} .meta files into '{}'", meta_files.len(), dir.join(COMPRESS_FILE_NAME).display());
+        info!("Compressed {} .meta files into '{}'", meta_files.len(), dir.join(COMPRESS_FILE_NAME).display());
     }
 
     Ok(())

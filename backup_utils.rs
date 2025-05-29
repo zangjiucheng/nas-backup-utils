@@ -4,6 +4,7 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use xxhash_rust::xxh3::Xxh3;
+use log::{info};
 
 #[derive(Debug)]
 struct FileInfo {
@@ -133,14 +134,14 @@ fn dealing_with_file(
     if let Some(last_info) = &last_file_info {
         if last_info.eq(&current_file_info) {
             // No changes, skip copying
-            println!("No changes for {:?}", path);
+            info!("No changes for {:?}", path);
             return Ok(());
         }
     }
 
     // If the file doesn't exist in the last checkpoint or has changed, copy it
     // Copy the file to the new checkpoint directory
-    println!("Copied {:?} -> {:?}", path, new_checkpoint_dir);
+    info!("Copied {:?} -> {:?}", path, new_checkpoint_dir);
     fs::copy(path, new_checkpoint_dir)?;
 
     Ok(())
@@ -193,6 +194,7 @@ pub fn traverse_meta(checkpoint: &Path) -> io::Result<()> {
 
             let mut meta_file_handle = File::create(&new_meta_file)?;
             current_file_info.write_to_file(&mut meta_file_handle)?;
+            info!("Created meta file for {:?}", path);
         }
     }
     Ok(())

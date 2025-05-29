@@ -8,6 +8,8 @@ chrono = "0.4.41"
 walkdir = "2.5"
 zip = "3.0"
 xxhash-rust = { version = "0.8.15", features = ["xxh3", "const_xxh3"] }
+log = "0.4.27"
+fern = { version = "0.7.1",  features = ["colored"] }
 
 [[bin]]
 name = "nas-backup-utils"
