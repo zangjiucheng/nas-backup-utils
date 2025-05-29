@@ -191,7 +191,7 @@ pub fn traverse_meta(checkpoint: &Path) -> io::Result<()> {
         let path = entry.path();
         let ft = entry.file_type()?;
         if ft.is_dir() {
-            if IGNORE_DIRS.iter().any(|ignore| path.starts_with(ignore)) {
+            if IGNORE_DIRS.iter().any(|ignore| path.file_name().and_then(|name| name.to_str()) == Some(ignore)) {
                 info!("Ignoring directory {:?}", path);
                 continue;
             }
@@ -199,6 +199,10 @@ pub fn traverse_meta(checkpoint: &Path) -> io::Result<()> {
         } else if ft.is_file() {
             if path.extension().and_then(|ext| ext.to_str()) == Some("meta") {
                 info!("Skipping meta file {:?}", path);
+                continue;
+            }
+            if path.file_name().and_then(|name| name.to_str()) == Some("meta_files.zip") {
+                info!("Skipping meta_files.zip {:?}", path);
                 continue;
             }
             let current_file_info = FileInfo::from_path(&path)?;
