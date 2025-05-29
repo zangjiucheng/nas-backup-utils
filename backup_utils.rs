@@ -1,10 +1,10 @@
-use crate::config::SRC_DIR;
+use crate::config::{IGNORE_DIRS, SRC_DIR};
 use chrono::Timelike;
+use log::info;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use xxhash_rust::xxh3::Xxh3;
-use log::{info};
 
 #[derive(Debug)]
 struct FileInfo {
@@ -162,6 +162,10 @@ pub fn traverse_backup(
         let dest = new_checkpoint.join(rel);
 
         if ft.is_dir() {
+            if IGNORE_DIRS.iter().any(|ignore| path.starts_with(ignore)) {
+                info!("Ignoring directory {:?}", path);
+                continue;
+            }
             // ensure the folder exists, then recurse
             fs::create_dir_all(&dest)?;
             traverse_backup(&path, last_checkpoint, new_checkpoint)?;
@@ -187,8 +191,16 @@ pub fn traverse_meta(checkpoint: &Path) -> io::Result<()> {
         let path = entry.path();
         let ft = entry.file_type()?;
         if ft.is_dir() {
+            if IGNORE_DIRS.iter().any(|ignore| path.starts_with(ignore)) {
+                info!("Ignoring directory {:?}", path);
+                continue;
+            }
             traverse_meta(&path)?;
         } else if ft.is_file() {
+            if path.extension().and_then(|ext| ext.to_str()) == Some("meta") {
+                info!("Skipping meta file {:?}", path);
+                continue;
+            }
             let current_file_info = FileInfo::from_path(&path)?;
             let new_meta_file = path.with_extension("meta");
 
