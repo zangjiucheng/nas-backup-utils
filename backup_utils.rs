@@ -162,7 +162,7 @@ pub fn traverse_backup(
         let dest = new_checkpoint.join(rel);
 
         if ft.is_dir() {
-            if IGNORE_DIRS.iter().any(|ignore| path.starts_with(ignore)) {
+            if IGNORE_DIRS.iter().any(|ignore| path.file_name().and_then(|name| name.to_str()) == Some(ignore)) {
                 info!("Ignoring directory {:?}", path);
                 continue;
             }
